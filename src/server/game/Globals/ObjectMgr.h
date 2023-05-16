@@ -1179,6 +1179,10 @@ class TC_GAME_API ObjectMgr
 
         void LoadBroadcastTexts();
         void LoadBroadcastTextLocales();
+
+        // lfm azerothcore
+        void LoadBroadcastTexts_Azerothcore();
+
         void LoadCreatureClassLevelStats();
         void LoadCreatureLocales();
         void LoadGraveyardOrientations();
@@ -1186,6 +1190,11 @@ class TC_GAME_API ObjectMgr
         void LoadCreatureTemplateAddons();
         void LoadCreatureSparringTemplate();
         void LoadCreatureTemplate(Field* fields);
+
+        // lfm azerothcore
+        void LoadCreatureTemplates_Azerothcore();
+        void LoadCreatureTemplate_Azerothcore(Field* fields);
+
         void CheckCreatureTemplate(CreatureTemplate const* cInfo);
         void CheckCreatureMovement(char const* table, uint64 id, CreatureMovementData& creatureMovement);
         void LoadGameObjectQuestItems();
@@ -1223,6 +1232,9 @@ class TC_GAME_API ObjectMgr
 
         void LoadGossipText();
 
+        // lfm azerothcore
+        void LoadGossipText_Azerothcore();
+
         void LoadAreaTriggerTeleports();
         void LoadAccessRequirements();
         void LoadQuestAreaTriggers();
@@ -1254,6 +1266,10 @@ class TC_GAME_API ObjectMgr
 
         void LoadGossipMenu();
         void LoadGossipMenuItems();
+
+        // lfm azerothcore 
+        void LoadGossipMenu_Azerothcore();
+        void LoadGossipMenuItems_Azerothcore();
 
         void LoadVendors();
         void LoadTrainers();

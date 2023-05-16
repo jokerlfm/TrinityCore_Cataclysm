@@ -1785,6 +1785,10 @@ void World::SetInitialWorldSettings()
 
     TC_LOG_INFO("server.loading", "Loading Broadcast texts...");
     sObjectMgr->LoadBroadcastTexts();
+
+    // lfm azerothcore 
+    sObjectMgr->LoadBroadcastTexts_Azerothcore();
+
     sObjectMgr->LoadBroadcastTextLocales();
 
     TC_LOG_INFO("server.loading", "Loading Localization strings...");
@@ -1855,6 +1859,9 @@ void World::SetInitialWorldSettings()
     TC_LOG_INFO("server.loading", "Loading NPC Texts...");
     sObjectMgr->LoadGossipText();
 
+    // lfm azerothcore
+    sObjectMgr->LoadGossipText_Azerothcore();
+
     TC_LOG_INFO("server.loading", "Loading Enchant Spells Proc datas...");
     sSpellMgr->LoadSpellEnchantProcData();
 
@@ -1878,6 +1885,9 @@ void World::SetInitialWorldSettings()
 
     TC_LOG_INFO("server.loading", "Loading Creature templates...");
     sObjectMgr->LoadCreatureTemplates();
+
+    // lfm azerothcore
+    sObjectMgr->LoadCreatureTemplates_Azerothcore();
 
     TC_LOG_INFO("server.loading", "Loading Equipment templates...");           // must be after LoadCreatureTemplates
     sObjectMgr->LoadEquipmentTemplates();

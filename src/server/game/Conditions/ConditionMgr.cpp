@@ -1118,8 +1118,14 @@ void ConditionMgr::LoadConditions(bool isReload)
         TC_LOG_INFO("misc", "Re-Loading `gossip_menu` Table for Conditions!");
         sObjectMgr->LoadGossipMenu();
 
+        // lfm azerothcore
+        sObjectMgr->LoadGossipMenu_Azerothcore();
+
         TC_LOG_INFO("misc", "Re-Loading `gossip_menu_option` Table for Conditions!");
         sObjectMgr->LoadGossipMenuItems();
+
+        // lfm azerothcore
+        sObjectMgr->LoadGossipMenuItems_Azerothcore();
 
         sSpellMgr->UnloadSpellInfoImplicitTargetConditionLists();
 

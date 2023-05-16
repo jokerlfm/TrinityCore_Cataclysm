@@ -563,8 +563,10 @@ public:
                         pDoneBy->AttackStop();
                         me->CastSpell(pDoneBy, SPELL_DUEL_VICTORY, true);
                         lose = true;
+                        me->AttackStop();
                         me->CastSpell(me, SPELL_GROVEL, true);
-                        me->RestoreFaction();
+                        me->SetFlag(UNIT_FIELD_FLAGS, UnitFlags::UNIT_FLAG_IMMUNE_TO_PC);
+                        me->DespawnOrUnsummon(2000, 60s);
                     }
                 }
             }
@@ -591,17 +593,12 @@ public:
 
             if (m_bIsDuelInProgress)
             {
-                if (lose)
-                {
-                    if (!me->HasAura(SPELL_GROVEL))
-                        EnterEvadeMode();
-                    return;
-                }
-                else if (me->GetVictim() && me->EnsureVictim()->GetTypeId() == TYPEID_PLAYER && me->EnsureVictim()->HealthBelowPct(10))
+                if (me->GetVictim() && me->EnsureVictim()->GetTypeId() == TYPEID_PLAYER && me->EnsureVictim()->HealthBelowPct(10))
                 {
                     me->EnsureVictim()->CastSpell(me->GetVictim(), SPELL_GROVEL, true); // beg
                     me->EnsureVictim()->RemoveGameObject(SPELL_DUEL_FLAG, true);
                     EnterEvadeMode();
+                    me->SetFlag(EUnitFields::UNIT_NPC_FLAGS, NPCFlags::UNIT_NPC_FLAG_GOSSIP);
                     return;
                 }
             }
@@ -629,7 +626,7 @@ public:
                 }
 
                 me->SetImmuneToPC(false);
-                me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SWIMMING);
+                me->RemoveFlag(EUnitFields::UNIT_NPC_FLAGS, NPCFlags::UNIT_NPC_FLAG_GOSSIP);
 
                 player->CastSpell(me, SPELL_DUEL, false);
                 player->CastSpell(player, SPELL_DUEL_FLAG, true);
@@ -639,17 +636,14 @@ public:
 
         bool GossipHello(Player* player) override
         {
-            if (player->GetQuestStatus(QUEST_DEATH_CHALLENGE) == QUEST_STATUS_INCOMPLETE && me->IsFullHealth())
-            {
-                if (player->HealthBelowPct(10))
-                    return true;
+            if (player->HealthBelowPct(10))
+                return true;
 
-                if (player->IsInCombat() || me->IsInCombat())
-                    return true;
+            if (player->IsInCombat() || me->IsInCombat())
+                return true;
 
-                AddGossipItemFor(player, Player::GetDefaultGossipMenuForSource(me), 0, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
-                SendGossipMenuFor(player, player->GetGossipTextId(me), me->GetGUID());
-            }
+            AddGossipItemFor(player, Player::GetDefaultGossipMenuForSource(me), 0, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+            SendGossipMenuFor(player, player->GetGossipTextId(me), me->GetGUID());
             return true;
         }
     };

@@ -558,6 +558,151 @@ void ObjectMgr::LoadCreatureTemplate(Field* fields)
     creatureTemplate.SpellSchoolImmuneMask = fields[80].GetUInt32();
     creatureTemplate.flags_extra           = fields[81].GetUInt32();
     creatureTemplate.ScriptID              = GetScriptId(fields[82].GetCString());
+
+    // lfm creature template fix
+    if (creatureTemplate.GossipMenuId > 0)
+    {
+        creatureTemplate.type_flags |= CreatureTypeFlags::CREATURE_TYPE_FLAG_FORCE_GOSSIP;
+    }
+}
+
+// lfm azerothcore 
+void ObjectMgr::LoadCreatureTemplates_Azerothcore()
+{
+    // lfm azerothcore creature_template                                              0      1                   2                   3                   4            5            6         7         8
+    QueryResult azResult = WorldDatabase.Query("SELECT entry, difficulty_entry_1, difficulty_entry_2, difficulty_entry_3, KillCredit1, KillCredit2, modelid1, modelid2, modelid3, "
+        //                        9         10    11       12        13              14        15        16   17       18       19          20         21          22
+        "modelid4, name, subname, IconName, gossip_menu_id, minlevel, maxlevel, exp, faction, npcflag, speed_walk, speed_run, speed_swim, speed_flight, "
+        //                        23               24     25      26         27              28              29               30            31             32          33          34
+        "detection_range, scale, `rank`, dmgschool, DamageModifier, BaseAttackTime, RangeAttackTime, BaseVariance, RangeVariance, unit_class, unit_flags, unit_flags2, "
+        //                        35            36      37            38             39             40            41
+        "dynamicflags, family, trainer_type, trainer_spell, trainer_class, trainer_race, type, "
+        //                        42          43      44              45        46              47         48       49       50      51
+        "type_flags, lootid, pickpocketloot, skinloot, PetSpellDataId, VehicleId, mingold, maxgold, AIName, MovementType, "
+        //                        52          53        54          55          56         57          58                         59           60              61            62             63
+        "ctm.Ground, ctm.Swim, ctm.Flight, ctm.Rooted, ctm.Chase, ctm.Random, ctm.InteractionPauseTimer, HoverHeight, HealthModifier, ManaModifier, ArmorModifier, ExperienceModifier, "
+        //                        64            65          66           67                    68                        69           70
+        "RacialLeader, movementId, RegenHealth, mechanic_immune_mask, spell_school_immune_mask, flags_extra, ScriptName "
+        "FROM creature_template_azerothcore ct LEFT JOIN creature_template_movement_azerothcore ctm ON ct.entry = ctm.CreatureId;");
+
+    if (azResult)
+    {
+        do
+        {
+            Field* azFields = azResult->Fetch();
+            LoadCreatureTemplate_Azerothcore(azFields);
+        } while (azResult->NextRow());
+    }
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, "Loaded azerothcore creature definitions");
+}
+
+void ObjectMgr::LoadCreatureTemplate_Azerothcore(Field* fields)
+{
+    uint32 entry = fields[0].GetUInt32();
+
+    CreatureTemplate& creatureTemplate = _creatureTemplateStore[entry];
+
+    creatureTemplate.Entry = entry;
+
+    for (uint8 i = 0; i < MAX_DIFFICULTY - 1; ++i)
+    {
+        creatureTemplate.DifficultyEntry[i] = fields[1 + i].GetUInt32();
+    }
+
+    for (uint8 i = 0; i < MAX_KILL_CREDIT; ++i)
+    {
+        creatureTemplate.KillCredit[i] = fields[4 + i].GetUInt32();
+    }
+
+    creatureTemplate.Modelid1 = fields[6].GetUInt32();
+    creatureTemplate.Modelid2 = fields[7].GetUInt32();
+    creatureTemplate.Modelid3 = fields[8].GetUInt32();
+    creatureTemplate.Modelid4 = fields[9].GetUInt32();
+    creatureTemplate.Name = fields[10].GetString();
+    //creatureTemplate.SubName = fields[11].GetString();
+    creatureTemplate.IconName = fields[12].GetString();
+    creatureTemplate.GossipMenuId = fields[13].GetUInt32();
+    creatureTemplate.minlevel = fields[14].GetUInt8();
+    creatureTemplate.maxlevel = fields[15].GetUInt8();
+    creatureTemplate.expansion = uint32(fields[16].GetInt16());
+    creatureTemplate.faction = uint32(fields[17].GetUInt16());
+    creatureTemplate.npcflag |= fields[18].GetUInt32();
+    creatureTemplate.speed_walk = fields[19].GetFloat();
+    creatureTemplate.speed_run = fields[20].GetFloat();
+    //creatureTemplate.speed_swim = fields[21].GetFloat();
+    //creatureTemplate.speed_flight = fields[22].GetFloat();
+    //creatureTemplate.detection_range = fields[23].GetFloat();
+    creatureTemplate.scale = fields[24].GetFloat();
+    creatureTemplate.rank = uint32(fields[25].GetUInt8());
+    creatureTemplate.dmgschool = uint32(fields[26].GetInt8());
+    creatureTemplate.ModDamage = fields[27].GetFloat();
+    creatureTemplate.BaseAttackTime = fields[28].GetUInt32();
+    creatureTemplate.RangeAttackTime = fields[29].GetUInt32();
+    creatureTemplate.BaseVariance = fields[30].GetFloat();
+    creatureTemplate.RangeVariance = fields[31].GetFloat();
+    creatureTemplate.unit_class = uint32(fields[32].GetUInt8());
+    creatureTemplate.unit_flags |= fields[33].GetUInt32();
+    creatureTemplate.unit_flags2 |= fields[34].GetUInt32();
+    creatureTemplate.dynamicflags |= fields[35].GetUInt32();
+    creatureTemplate.family = CreatureFamily(uint32(fields[36].GetUInt8()));
+    //creatureTemplate.trainer_type = uint32(fields[37].GetUInt8());
+    //creatureTemplate.trainer_spell = fields[38].GetUInt32();
+    creatureTemplate.trainer_class = uint32(fields[39].GetUInt8());
+    //creatureTemplate.trainer_race = uint32(fields[40].GetUInt8());
+    creatureTemplate.type = uint32(fields[41].GetUInt8());
+    creatureTemplate.type_flags |= fields[42].GetUInt32();
+    creatureTemplate.lootid = fields[43].GetUInt32();
+    creatureTemplate.pickpocketLootId = fields[44].GetUInt32();
+    creatureTemplate.SkinLootId = fields[45].GetUInt32();
+    creatureTemplate.PetSpellDataId = fields[46].GetUInt32();
+    creatureTemplate.VehicleId = fields[47].GetUInt32();
+    creatureTemplate.mingold = fields[48].GetUInt32();
+    creatureTemplate.maxgold = fields[49].GetUInt32();
+    creatureTemplate.MovementType = uint32(fields[51].GetUInt8());
+    if (!fields[52].IsNull())
+    {
+        creatureTemplate.Movement.Ground = static_cast<CreatureGroundMovementType>(fields[52].GetUInt8());
+    }
+
+    creatureTemplate.Movement.Swim = fields[53].GetBool();
+    if (!fields[54].IsNull())
+    {
+        creatureTemplate.Movement.Flight = static_cast<CreatureFlightMovementType>(fields[54].GetUInt8());
+    }
+
+    creatureTemplate.Movement.Rooted = fields[55].GetBool();
+    if (!fields[56].IsNull())
+    {
+        //creatureTemplate.Movement.Chase = static_cast<CreatureChaseMovementType>(fields[56].GetUInt8());
+    }
+    if (!fields[57].IsNull())
+    {
+        creatureTemplate.Movement.Random = static_cast<CreatureRandomMovementType>(fields[57].GetUInt8());
+    }
+    if (!fields[58].IsNull())
+    {
+        creatureTemplate.Movement.InteractionPauseTimer = fields[58].GetUInt32();
+    }
+
+    creatureTemplate.HoverHeight = fields[59].GetFloat();
+    creatureTemplate.ModHealth = fields[60].GetFloat();
+    creatureTemplate.ModMana = fields[61].GetFloat();
+    creatureTemplate.ModArmor = fields[62].GetFloat();
+    creatureTemplate.ModExperience = fields[63].GetFloat();
+    creatureTemplate.RacialLeader = fields[64].GetBool();
+    creatureTemplate.movementId = fields[65].GetUInt32();
+    creatureTemplate.RegenHealth = fields[66].GetBool();
+    creatureTemplate.MechanicImmuneMask = fields[67].GetUInt32();
+    creatureTemplate.SpellSchoolImmuneMask = fields[68].GetUInt8();
+    creatureTemplate.flags_extra |= fields[69].GetUInt32();
+    //creatureTemplate.AIName = fields[50].GetString();
+    //creatureTemplate.ScriptID = GetScriptId(fields[70].GetString());
+
+    // lfm creature template fix
+    if (creatureTemplate.GossipMenuId > 0)
+    {
+        creatureTemplate.type_flags |= CreatureTypeFlags::CREATURE_TYPE_FLAG_FORCE_GOSSIP;
+    }
 }
 
 void ObjectMgr::LoadCreatureTemplateAddons()
@@ -5805,6 +5950,64 @@ void ObjectMgr::LoadGossipText()
     TC_LOG_INFO("server.loading", ">> Loaded %u npc texts in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
 }
 
+// lfm azerothcore
+void ObjectMgr::LoadGossipText_Azerothcore()
+{
+    QueryResult result = WorldDatabase.Query("SELECT ID, "
+        "text0_0, text0_1, BroadcastTextID0, lang0, Probability0, em0_0, em0_1, em0_2, em0_3, em0_4, em0_5, "
+        "text1_0, text1_1, BroadcastTextID1, lang1, Probability1, em1_0, em1_1, em1_2, em1_3, em1_4, em1_5, "
+        "text2_0, text2_1, BroadcastTextID2, lang2, Probability2, em2_0, em2_1, em2_2, em2_3, em2_4, em2_5, "
+        "text3_0, text3_1, BroadcastTextID3, lang3, Probability3, em3_0, em3_1, em3_2, em3_3, em3_4, em3_5, "
+        "text4_0, text4_1, BroadcastTextID4, lang4, Probability4, em4_0, em4_1, em4_2, em4_3, em4_4, em4_5, "
+        "text5_0, text5_1, BroadcastTextID5, lang5, Probability5, em5_0, em5_1, em5_2, em5_3, em5_4, em5_5, "
+        "text6_0, text6_1, BroadcastTextID6, lang6, Probability6, em6_0, em6_1, em6_2, em6_3, em6_4, em6_5, "
+        "text7_0, text7_1, BroadcastTextID7, lang7, Probability7, em7_0, em7_1, em7_2, em7_3, em7_4, em7_5 "
+        "FROM npc_text_azerothcore");
+
+    if (result)
+    {
+        uint32 cic = 0;
+        do
+        {
+            cic = 0;
+            Field* fields = result->Fetch();
+            if (uint32 id = fields[cic++].GetUInt32())
+            {
+                GossipText& gText = _gossipTextStore[id];
+
+                for (uint8 i = 0; i < MAX_GOSSIP_TEXT_OPTIONS; ++i)
+                {
+                    gText.Options[i].Text_0 = fields[cic++].GetString();
+                    gText.Options[i].Text_1 = fields[cic++].GetString();
+                    gText.Options[i].BroadcastTextID = fields[cic++].GetUInt32();
+                    gText.Options[i].Language = fields[cic++].GetUInt8();
+                    gText.Options[i].Probability = fields[cic++].GetFloat();
+
+                    for (uint8 j = 0; j < MAX_GOSSIP_TEXT_EMOTES; ++j)
+                    {
+                        gText.Options[i].Emotes[j]._Delay = fields[cic++].GetUInt16();
+                        gText.Options[i].Emotes[j]._Emote = fields[cic++].GetUInt16();
+                    }
+                }
+
+                for (uint8 i = 0; i < MAX_GOSSIP_TEXT_OPTIONS; i++)
+                {
+                    if (gText.Options[i].BroadcastTextID)
+                    {
+                        if (!GetBroadcastText(gText.Options[i].BroadcastTextID))
+                        {
+                            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "missing broadcast_text %d", gText.Options[i].BroadcastTextID);
+                            gText.Options[i].BroadcastTextID = 0;
+                        }
+                    }
+                }
+            }
+        } while (result->NextRow());
+    }
+
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, "Loaded azerothcore npc_text");
+}
+
 void ObjectMgr::LoadNpcTextLocales()
 {
     uint32 oldMSTime = getMSTime();
@@ -9056,6 +9259,14 @@ void ObjectMgr::LoadGossipMenuItems()
         gMenuItem.OptionBroadcastTextID = fields[4].GetUInt32();
         gMenuItem.OptionType            = fields[5].GetUInt32();
         gMenuItem.OptionNpcFlag         = fields[6].GetUInt32();
+
+        // lfm vender auto set option flag 
+        if (gMenuItem.OptionIcon == GossipOptionIcon::GOSSIP_ICON_VENDOR)
+        {
+            gMenuItem.OptionType = Gossip_Option::GOSSIP_OPTION_VENDOR;
+            gMenuItem.OptionNpcFlag |= NPCFlags::UNIT_NPC_FLAG_VENDOR;
+        }
+
         gMenuItem.ActionMenuID          = fields[7].GetUInt32();
         gMenuItem.ActionPoiID           = fields[8].GetUInt32();
         gMenuItem.BoxCoded              = fields[9].GetBool();
@@ -9100,6 +9311,80 @@ void ObjectMgr::LoadGossipMenuItems()
     } while (result->NextRow());
 
     TC_LOG_INFO("server.loading", ">> Loaded %u gossip_menu_option entries in %u ms", uint32(_gossipMenuItemsStore.size()), GetMSTimeDiffToNow(oldMSTime));
+}
+
+// lfm azerothcore 
+void ObjectMgr::LoadGossipMenu_Azerothcore()
+{
+    QueryResult result = WorldDatabase.Query("SELECT MenuID, TextID FROM gossip_menu_azerothcore");
+
+    if (result)
+    {
+        do
+        {
+            Field* fields = result->Fetch();
+
+            GossipMenus gMenu;
+
+            gMenu.MenuID = fields[0].GetUInt16();
+            gMenu.TextID = fields[1].GetUInt32();
+
+            if (!GetGossipText(gMenu.TextID))
+            {
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "missing gossip text %d - %d", gMenu.MenuID, gMenu.TextID);
+                continue;
+            }
+
+            _gossipMenusStore.insert(GossipMenusContainer::value_type(gMenu.MenuID, gMenu));
+        } while (result->NextRow());
+    }
+
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, "Loaded azerothcore gossip_menu");
+}
+
+// lfm azerothcore 
+void ObjectMgr::LoadGossipMenuItems_Azerothcore()
+{
+    QueryResult result = WorldDatabase.Query(
+        //      0       1         2           3           4                      5           6              7             8            9         10        11       12
+        "SELECT MenuID, OptionID, OptionIcon, OptionText, OptionBroadcastTextID, OptionType, OptionNpcFlag, ActionMenuID, ActionPoiID, BoxCoded, BoxMoney, BoxText, BoxBroadcastTextID "
+        "FROM gossip_menu_option_azerothcore ORDER BY MenuID, OptionID");
+
+    if (result)
+    {
+        do
+        {
+            Field* fields = result->Fetch();
+
+            GossipMenuItems gMenuItem;
+
+            gMenuItem.MenuID = fields[0].GetUInt16();
+            gMenuItem.OptionID = fields[1].GetUInt16();
+            gMenuItem.OptionIcon = GossipOptionIcon(fields[2].GetUInt32());
+            gMenuItem.OptionText = fields[3].GetString();
+            gMenuItem.OptionBroadcastTextID = fields[4].GetUInt32();
+            gMenuItem.OptionType = fields[5].GetUInt8();
+            gMenuItem.OptionNpcFlag = fields[6].GetUInt32();
+
+            // lfm vender auto set option flag 
+            if (gMenuItem.OptionIcon == GossipOptionIcon::GOSSIP_ICON_VENDOR)
+            {
+                gMenuItem.OptionType = Gossip_Option::GOSSIP_OPTION_VENDOR;
+                gMenuItem.OptionNpcFlag |= NPCFlags::UNIT_NPC_FLAG_VENDOR;
+            }
+
+            gMenuItem.ActionMenuID = fields[7].GetUInt32();
+            gMenuItem.ActionPoiID = fields[8].GetUInt32();
+            gMenuItem.BoxCoded = fields[9].GetBool();
+            gMenuItem.BoxMoney = fields[10].GetUInt32();
+            gMenuItem.BoxText = fields[11].GetString();
+            gMenuItem.BoxBroadcastTextID = fields[12].GetUInt32();
+
+            _gossipMenuItemsStore.insert(GossipMenuItemsContainer::value_type(gMenuItem.MenuID, gMenuItem));
+        } while (result->NextRow());
+    }
+
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, "Loaded azerothcore gossip_menu_item");
 }
 
 Trainer::Trainer const* ObjectMgr::GetTrainer(uint32 trainerId) const
@@ -9455,6 +9740,40 @@ void ObjectMgr::LoadBroadcastTextLocales()
     } while (result->NextRow());
 
     TC_LOG_INFO("server.loading", ">> Loaded %u broadcast text locales in %u ms", uint32(_broadcastTextStore.size()), GetMSTimeDiffToNow(oldMSTime));
+}
+
+// lfm azerothcore
+void ObjectMgr::LoadBroadcastTexts_Azerothcore()
+{
+    //                                               0   1           2         3           4         5         6         7            8            9            10              11        12
+    QueryResult result = WorldDatabase.Query("SELECT ID, LanguageID, MaleText, FemaleText, EmoteID1, EmoteID2, EmoteID3, EmoteDelay1, EmoteDelay2, EmoteDelay3, SoundEntriesID, EmotesID, Flags FROM broadcast_text_azerothcore");
+    if (result)
+    {
+        do
+        {
+            Field* fields = result->Fetch();
+
+            BroadcastText bct;
+
+            bct.Id = fields[0].GetUInt32();
+            bct.LanguageID = fields[1].GetUInt32();
+            bct.Text[DEFAULT_LOCALE] = fields[2].GetString();
+            bct.Text1[DEFAULT_LOCALE] = fields[3].GetString();
+            bct.EmoteId1 = fields[4].GetUInt32();
+            bct.EmoteId2 = fields[5].GetUInt32();
+            bct.EmoteId3 = fields[6].GetUInt32();
+            bct.EmoteDelay1 = fields[7].GetUInt32();
+            bct.EmoteDelay2 = fields[8].GetUInt32();
+            bct.EmoteDelay3 = fields[9].GetUInt32();
+            bct.SoundEntriesID = fields[10].GetUInt32();
+            bct.EmotesID = fields[11].GetUInt32();
+            bct.Flags = fields[12].GetUInt32();
+
+            _broadcastTextStore[bct.Id] = bct;
+        } while (result->NextRow());
+    }
+
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, "Loaded azerothcore broadcast_text");
 }
 
 CreatureBaseStats const* ObjectMgr::GetCreatureBaseStats(uint8 level, uint8 unitClass)

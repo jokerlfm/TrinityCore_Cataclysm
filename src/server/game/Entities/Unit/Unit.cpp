@@ -9757,6 +9757,9 @@ void CharmInfo::InitPossessCreateSpells()
 
         for (uint8 i = 0; i < MAX_CREATURE_SPELLS; ++i)
         {
+            // lfm debug
+            Creature* checkC = _unit->ToCreature();
+
             uint32 spellId = _unit->ToCreature()->m_spells[i];
             SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
             if (spellInfo)
