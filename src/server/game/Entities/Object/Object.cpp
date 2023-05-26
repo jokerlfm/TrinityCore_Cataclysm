@@ -1015,6 +1015,17 @@ void Object::RemoveFlag(uint16 index, uint32 oldFlag)
     }
 }
 
+// lfm azerothcore 
+void Object::SetUnitFlag(uint32 flag)
+{
+    SetFlag(EUnitFields::UNIT_NPC_FLAGS, flag);
+}
+
+void Object::RemoveUnitFlag(uint32 flag)
+{
+    RemoveFlag(EUnitFields::UNIT_NPC_FLAGS, flag);
+}
+
 void Object::ToggleFlag(uint16 index, uint32 flag)
 {
     if (HasFlag(index, flag))
@@ -2980,6 +2991,12 @@ SpellCastResult WorldObject::CastSpell(Position const& dest, uint32 spellId, Cas
     SpellCastTargets targets;
     targets.SetDst(dest);
     return CastSpell(targets, spellId, args);
+}
+
+// lfm cast spell to position 
+SpellCastResult WorldObject::CastSpell(float targetX, float targetY, float targetZ, uint32 spellId, CastSpellExtraArgs const& args)
+{
+    return CastSpell({ targetX,targetY,targetZ }, spellId, args);
 }
 
 // function based on function Unit::CanAttack from 13850 client

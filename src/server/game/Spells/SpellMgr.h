@@ -722,6 +722,10 @@ class TC_GAME_API SpellMgr
         void LoadPetLevelupSpellMap();
         void LoadPetDefaultSpells();
         void LoadSpellAreas();
+
+        // lfm azerothcore spell_area 
+        void LoadSpellAreas_Azerothcore();
+
         void LoadSpellInfoStore();
         void UnloadSpellInfoStore();
         void UnloadSpellInfoImplicitTargetConditionLists();

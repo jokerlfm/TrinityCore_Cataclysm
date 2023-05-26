@@ -275,6 +275,11 @@ void VehicleAI::UpdateAI(uint32 diff)
 {
     CheckConditions(diff);
 
+    if (UpdateVictim())
+    {
+        DoMeleeAttackIfReady();
+    }
+
     if (m_DoDismiss)
     {
         if (m_DismissTimer < diff)

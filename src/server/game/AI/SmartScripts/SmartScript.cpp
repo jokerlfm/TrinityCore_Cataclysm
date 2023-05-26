@@ -846,23 +846,39 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
         }
         case SMART_ACTION_CALL_GROUPEVENTHAPPENS:
         {
-            if (!unit)
-                break;
+            // lfm azerothcore scripts fix 
+            //if (!unit)
+            //{
+            //    break;
+            //}
 
-            // If invoker was pet or charm
-            Player* player = unit->GetCharmerOrOwnerPlayerOrPlayerItself();
-            if (player && GetBaseObject())
+            for (WorldObject* target : targets)
             {
-                player->GroupEventHappens(e.action.quest.quest, GetBaseObject());
-                TC_LOG_DEBUG("scripts.ai", "SmartScript::ProcessAction: SMART_ACTION_CALL_GROUPEVENTHAPPENS: Player %u, group credit for quest %u",
-                    unit->GetGUID().GetCounter(), e.action.quest.quest);
-            }
+                if (!IsUnit(target))
+                    continue;
 
-            // Special handling for vehicles
-            if (Vehicle* vehicle = unit->GetVehicleKit())
-                for (SeatMap::iterator it = vehicle->Seats.begin(); it != vehicle->Seats.end(); ++it)
-                    if (Player* player = ObjectAccessor::GetPlayer(*unit, it->second.Passenger.Guid))
-                        player->GroupEventHappens(e.action.quest.quest, GetBaseObject());
+                Unit* unitTarget = target->ToUnit();
+                // If invoker was pet or charm
+                Player* player = unitTarget->GetCharmerOrOwnerPlayerOrPlayerItself();
+                if (player && GetBaseObject())
+                {
+                    player->GroupEventHappens(e.action.quest.quest, GetBaseObject());
+                    TC_LOG_DEBUG("scripts.ai", "SmartScript::ProcessAction: SMART_ACTION_CALL_GROUPEVENTHAPPENS: Player %u, group credit for quest %u",
+                        unitTarget->GetGUID().GetCounter(), e.action.quest.quest);
+                }
+
+                // Special handling for vehicles
+                if (Vehicle* vehicle = unitTarget->GetVehicleKit())
+                {
+                    for (SeatMap::iterator it = vehicle->Seats.begin(); it != vehicle->Seats.end(); ++it)
+                    {
+                        if (Player* player = ObjectAccessor::GetPlayer(*unitTarget, it->second.Passenger.Guid))
+                        {
+                            player->GroupEventHappens(e.action.quest.quest, GetBaseObject());
+                        }                            
+                    }                        
+                }                    
+            }
             break;
         }
         case SMART_ACTION_COMBAT_STOP:

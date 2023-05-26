@@ -12676,7 +12676,19 @@ bool Unit::HandleSpellClick(Unit* clicker, int8 seatId)
 
         //! Check database conditions
         if (!sConditionMgr->IsObjectMeetingSpellClickConditions(spellClickEntry, itr->second.spellId, clicker, this))
+        {
             continue;
+        }
+
+        // lfm npc will not check conditions
+        //if (clicker->GetTypeId() == TypeID::TYPEID_PLAYER)
+        //{
+        //    //! Check database conditions
+        //    if (!sConditionMgr->IsObjectMeetingSpellClickConditions(spellClickEntry, itr->second.spellId, clicker, this))
+        //    {
+        //        continue;
+        //    }
+        //}
 
         Unit* caster = (itr->second.castFlags & NPC_CLICK_CAST_CASTER_CLICKER) ? clicker : this;
         Unit* target = (itr->second.castFlags & NPC_CLICK_CAST_TARGET_CLICKER) ? clicker : this;
@@ -14544,4 +14556,20 @@ void Unit::ProcessItemCast(PendingSpellCastRequest const& castRequest, SpellCast
 void Unit::SetGameClientMovingMe(GameClient* gameClientMovingMe)
 {
     _gameClientMovingMe = gameClientMovingMe;
+}
+
+// lfm azerothcore
+void Unit::StopMovingOnCurrentPos() // pussywizard
+{
+    ClearUnitState(UNIT_STATE_MOVING);
+
+    // not need send any packets if not in world
+    if (!IsInWorld())
+        return;
+
+    DisableSpline(); // pussywizard: required so Launch() won't recalculate position from previous spline
+    Movement::MoveSplineInit init(this);
+    init.MoveTo(GetPositionX(), GetPositionY(), GetPositionZ());
+    init.SetFacing(GetOrientation());
+    init.Launch();
 }

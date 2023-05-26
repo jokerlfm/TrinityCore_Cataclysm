@@ -663,6 +663,14 @@ bool Creature::UpdateEntry(uint32 entry, CreatureData const* data /*= nullptr*/,
 
 void Creature::Update(uint32 diff)
 {
+    // lfm debug
+    //uint32 myEntry = GetEntry();
+    //if (myEntry == 28782)
+    //{
+    //    uint32 myreact = GetReactState();
+    //    bool breakPoint = true;
+    //}
+
     if (IsAIEnabled() && m_triggerJustAppeared && m_deathState != DEAD)
     {
         if (m_respawnCompatibilityMode && m_vehicleKit)
@@ -844,6 +852,13 @@ void Creature::Update(uint32 diff)
 
 void Creature::RegenerateHealth()
 {
+    // lfm debug
+    uint32 myEntry = GetEntry();
+    if (myEntry == 28887)
+    {
+        bool breakPoint = true;
+    }
+
     if (!isRegeneratingHealth())
         return;
 

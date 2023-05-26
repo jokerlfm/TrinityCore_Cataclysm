@@ -204,6 +204,10 @@ class TC_GAME_API CreatureAI : public UnitAI
         // Called when a player selects a gossip item in the creature's gossip menu.
         virtual bool GossipSelect(Player* /*player*/, uint32 /*menuId*/, uint32 /*gossipListId*/) { return false; }
 
+        // lfm azerothcore event
+        virtual bool OnGossipSelect(Player* /*player*/, Creature* /*creature*/, uint32 /*sender*/, uint32 /*action*/) { return false; }
+        virtual bool OnGossipHello(Player* /*player*/, Creature* /*creature*/) { return false; }
+
         // Called when a player selects a gossip with a code in the creature's gossip menu.
         virtual bool GossipSelectCode(Player* /*player*/, uint32 /*menuId*/, uint32 /*gossipListId*/, char const* /*code*/) { return false; }
 

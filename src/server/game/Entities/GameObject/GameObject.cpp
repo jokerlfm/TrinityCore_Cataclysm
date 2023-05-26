@@ -1826,6 +1826,12 @@ void GameObject::Use(Unit* user)
         playerUser->PlayerTalkClass->ClearMenus();
         if (AI()->GossipHello(playerUser))
             return;
+
+        // lfm azerothcore event
+        if (AI()->OnGossipHello(playerUser, this))
+        {
+            return;
+        }
     }
 
     // If cooldown data present in template

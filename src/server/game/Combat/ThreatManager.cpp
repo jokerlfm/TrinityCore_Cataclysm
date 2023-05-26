@@ -157,6 +157,14 @@ void ThreatReference::UnregisterAndFree()
 /*static*/ bool ThreatManager::CanHaveThreatList(Unit const* who)
 {
     Creature const* cWho = who->ToCreature();
+
+    // lfm debug
+    uint32 myEntry = cWho->GetEntry();
+    if (myEntry == 28782 || myEntry == 28698)
+    {
+        bool breakPoint = true;
+    }
+
     // only creatures can have threat list
     if (!cWho)
         return false;

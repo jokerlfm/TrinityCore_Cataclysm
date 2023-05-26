@@ -241,8 +241,20 @@ void CreatureAI::EnterEvadeMode(EvadeReason why)
 
 bool CreatureAI::UpdateVictim()
 {
+    // lfm debug
+    uint32 myEntry = me->GetEntry();
+    if (myEntry == 28782)
+    {
+        bool breakPoint = true;
+    }
+
     if (!IsEngaged())
         return false;
+
+    if (myEntry == 28782)
+    {
+        bool breakPoint = true;
+    }
 
     if (!me->IsAlive())
     {

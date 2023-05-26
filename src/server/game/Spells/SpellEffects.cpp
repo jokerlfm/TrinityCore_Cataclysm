@@ -1598,6 +1598,12 @@ void Spell::SendLoot(ObjectGuid guid, LootType loottype)
         if (gameObjTarget->AI()->GossipHello(player))
             return;
 
+        // lfm azerothcore event
+        if (gameObjTarget->AI()->OnGossipHello(player, gameObjTarget))
+        {
+            return;
+        }
+
         switch (gameObjTarget->GetGoType())
         {
             case GAMEOBJECT_TYPE_DOOR:
@@ -1951,7 +1957,10 @@ void Spell::EffectSummonType(SpellEffIndex effIndex)
 
     if (uint8 const* parameter = sObjectMgr->GetSummonPropertiesParameter(properties->ID))
     {
-        switch (SummonPropertiesParamType(*parameter))
+        // lfm summon properties fix
+        uint8 actualParameter = properties->Control;
+        //switch (SummonPropertiesParamType(*parameter))
+        switch (SummonPropertiesParamType(actualParameter))
         {
             case SummonPropertiesParamType::None: // Default behavior
                 break;

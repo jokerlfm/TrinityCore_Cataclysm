@@ -1886,9 +1886,6 @@ void World::SetInitialWorldSettings()
     TC_LOG_INFO("server.loading", "Loading Creature templates...");
     sObjectMgr->LoadCreatureTemplates();
 
-    // lfm azerothcore
-    sObjectMgr->LoadCreatureTemplates_Azerothcore();
-
     TC_LOG_INFO("server.loading", "Loading Equipment templates...");           // must be after LoadCreatureTemplates
     sObjectMgr->LoadEquipmentTemplates();
 

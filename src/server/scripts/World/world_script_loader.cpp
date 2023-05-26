@@ -57,3 +57,10 @@ void AddWorldScripts()
         AddSC_action_ip_logger(); // location: scripts\World\action_ip_logger.cpp
     AddSC_duel_reset();
 }
+
+// lfm azerothcore scripts
+void AddSC_the_scarlet_enclave_c1();
+void AddMingScripts()
+{
+    AddSC_the_scarlet_enclave_c1();
+}

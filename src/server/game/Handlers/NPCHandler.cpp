@@ -199,7 +199,12 @@ void WorldSession::HandleGossipHelloOpcode(WorldPackets::NPC::Hello& packet)
     _player->PlayerTalkClass->ClearMenus();
     if (!unit->AI()->GossipHello(_player))
     {
-//        _player->TalkedToCreature(unit->GetEntry(), unit->GetGUID());
+        // lfm azerothcore event
+        if (unit->AI()->OnGossipHello(_player, unit))
+        {
+            return;
+        }
+        //        _player->TalkedToCreature(unit->GetEntry(), unit->GetGUID());
         _player->PrepareGossipMenu(unit, unit->GetCreatureTemplate()->GossipMenuId, true);
 
         // If npc is a flightmaster who is a quest giver do not send the gossip if there is no quest

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -2365,6 +2365,10 @@ void SpellMgr::LoadPetDefaultSpells()
 
 void SpellMgr::LoadSpellAreas()
 {
+    // lfm azerothcore load spell_area_azerothcore
+    LoadSpellAreas_Azerothcore();
+    return;
+
     uint32 oldMSTime = getMSTime();
 
     mSpellAreaMap.clear();                                  // need for reload case
@@ -2559,6 +2563,206 @@ void SpellMgr::LoadSpellAreas()
     } while (result->NextRow());
 
     TC_LOG_INFO("server.loading", ">> Loaded %u spell area requirements in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+}
+
+void SpellMgr::LoadSpellAreas_Azerothcore()
+{
+    uint32 oldMSTime = getMSTime();
+
+    mSpellAreaMap.clear();                                  // need for reload case
+    mSpellAreaForQuestMap.clear();
+    mSpellAreaForQuestEndMap.clear();
+    mSpellAreaForAuraMap.clear();
+
+    //                                                  0     1         2              3               4                 5          6          7       8         9
+    QueryResult result = WorldDatabase.Query("SELECT spell, area, quest_start, quest_start_status, quest_end_status, quest_end, aura_spell, racemask, gender, autocast FROM spell_area_azerothcore");
+
+    if (!result)
+    {
+        sLog->outMessage("ming", LogLevel::LOG_LEVEL_WARN, ">> Loaded 0 spell area requirements. DB table `spell_area` is empty.");
+        sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, " ");
+        return;
+    }
+
+    uint32 count = 0;
+    do
+    {
+        Field* fields = result->Fetch();
+
+        uint32 spell = fields[0].GetUInt32();
+        SpellArea spellArea;
+        spellArea.spellId = spell;
+        spellArea.areaId = fields[1].GetUInt32();
+        spellArea.questStart = fields[2].GetUInt32();
+        spellArea.questStartStatus = fields[3].GetUInt32();
+        spellArea.questEndStatus = fields[4].GetUInt32();
+        spellArea.questEnd = fields[5].GetUInt32();
+        spellArea.auraSpell = fields[6].GetInt32();
+        spellArea.raceMask = fields[7].GetUInt32();
+        spellArea.gender = Gender(fields[8].GetUInt8());
+        spellArea.flags = fields[9].GetUInt8();
+
+        if (SpellInfo const* spellInfo = GetSpellInfo(spell))
+        {
+            if (spellArea.flags)
+                const_cast<SpellInfo*>(spellInfo)->Attributes |= SPELL_ATTR0_NO_AURA_CANCEL;
+        }
+        else
+        {
+            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Spell %d listed in `spell_area` does not exist", spell);
+            continue;
+        }
+
+        {
+            bool ok = true;
+            SpellAreaMapBounds sa_bounds = GetSpellAreaMapBounds(spellArea.spellId);
+            for (SpellAreaMap::const_iterator itr = sa_bounds.first; itr != sa_bounds.second; ++itr)
+            {
+                if (spellArea.spellId != itr->second.spellId)
+                    continue;
+                if (spellArea.areaId != itr->second.areaId)
+                    continue;
+                if (spellArea.questStart != itr->second.questStart)
+                    continue;
+                if (spellArea.auraSpell != itr->second.auraSpell)
+                    continue;
+                if ((spellArea.raceMask & itr->second.raceMask) == 0)
+                    continue;
+                if (spellArea.gender != itr->second.gender)
+                    continue;
+
+                // duplicate by requirements
+                ok = false;
+                break;
+            }
+
+            if (!ok)
+            {
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Spell %d listed in `spell_area` already listed with similar requirements.", spell);
+                continue;
+            }
+        }
+
+        if (spellArea.areaId && !sAreaTableStore.LookupEntry(spellArea.areaId))
+        {
+            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Spell %d listed in `spell_area` have wrong area (%d) requirement", spell, spellArea.areaId);
+            continue;
+        }
+
+        if (spellArea.questStart && !sObjectMgr->GetQuestTemplate(spellArea.questStart))
+        {
+            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Spell %d listed in `spell_area` have wrong start quest (%d) requirement", spell, spellArea.questStart);
+            continue;
+        }
+
+        if (spellArea.questEnd)
+        {
+            if (!sObjectMgr->GetQuestTemplate(spellArea.questEnd))
+            {
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Spell %d listed in `spell_area` have wrong end quest (%d) requirement", spell, spellArea.questEnd);
+                continue;
+            }
+        }
+
+        if (spellArea.auraSpell)
+        {
+            SpellInfo const* spellInfo = GetSpellInfo(std::abs(spellArea.auraSpell));
+            if (!spellInfo)
+            {
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Spell %d listed in `spell_area` have wrong aura spell (%d) requirement", spell, std::abs(spellArea.auraSpell));
+                continue;
+            }
+
+            if (uint32(std::abs(spellArea.auraSpell)) == spellArea.spellId)
+            {
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Spell %d listed in `spell_area` have aura spell (%d) requirement for itself", spell, std::abs(spellArea.auraSpell));
+                continue;
+            }
+
+            // not allow autocast chains by auraSpell field (but allow use as alternative if not present)
+            if (spellArea.flags && spellArea.auraSpell > 0)
+            {
+                bool chain = false;
+                SpellAreaForAuraMapBounds saBound = GetSpellAreaForAuraMapBounds(spellArea.spellId);
+                for (SpellAreaForAuraMap::const_iterator itr = saBound.first; itr != saBound.second; ++itr)
+                {
+                    if (itr->second->flags && itr->second->auraSpell > 0)
+                    {
+                        chain = true;
+                        break;
+                    }
+                }
+
+                if (chain)
+                {
+                    sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Spell %d listed in `spell_area` have aura spell (%d) requirement that itself autocast from aura", spell, spellArea.auraSpell);
+                    continue;
+                }
+
+                SpellAreaMapBounds saBound2 = GetSpellAreaMapBounds(spellArea.auraSpell);
+                for (SpellAreaMap::const_iterator itr2 = saBound2.first; itr2 != saBound2.second; ++itr2)
+                {
+                    if (itr2->second.flags && itr2->second.auraSpell > 0)
+                    {
+                        chain = true;
+                        break;
+                    }
+                }
+
+                if (chain)
+                {
+                    sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Spell %d listed in `spell_area` have aura spell (%d) requirement that itself autocast from aura", spell, spellArea.auraSpell);
+                    continue;
+                }
+            }
+        }
+
+        if (spellArea.raceMask && (spellArea.raceMask & RACEMASK_ALL_PLAYABLE) == 0)
+        {
+            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Spell %d listed in `spell_area` have wrong race mask (%d) requirement", spell, spellArea.raceMask);
+            continue;
+        }
+
+        if (spellArea.gender != GENDER_NONE && spellArea.gender != GENDER_FEMALE && spellArea.gender != GENDER_MALE)
+        {
+            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Spell %d listed in `spell_area` have wrong gender (%d) requirement", spell, spellArea.gender);
+            continue;
+        }
+
+        SpellArea* sa = &mSpellAreaMap.insert(SpellAreaMap::value_type(spell, spellArea))->second;
+
+        // for search by current zone/subzone at zone/subzone change
+        if (spellArea.areaId)
+            mSpellAreaForAreaMap.insert(SpellAreaForAreaMap::value_type(spellArea.areaId, sa));
+
+        // for search at quest update checks
+        if (spellArea.questStart || spellArea.questEnd)
+        {
+            if (spellArea.questStart == spellArea.questEnd)
+                mSpellAreaForQuestMap.insert(SpellAreaForQuestMap::value_type(spellArea.questStart, sa));
+            else
+            {
+                if (spellArea.questStart)
+                    mSpellAreaForQuestMap.insert(SpellAreaForQuestMap::value_type(spellArea.questStart, sa));
+                if (spellArea.questEnd)
+                    mSpellAreaForQuestMap.insert(SpellAreaForQuestMap::value_type(spellArea.questEnd, sa));
+            }
+        }
+
+        // for search at quest start/reward
+        if (spellArea.questEnd)
+            mSpellAreaForQuestEndMap.insert(SpellAreaForQuestMap::value_type(spellArea.questEnd, sa));
+
+        // for search at aura apply
+        if (spellArea.auraSpell)
+            mSpellAreaForAuraMap.insert(SpellAreaForAuraMap::value_type(abs(spellArea.auraSpell), sa));
+
+        ++count;
+
+    } while (result->NextRow());
+
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, ">> Loaded %d Spell Area Requirements in %d ms", count, GetMSTimeDiffToNow(oldMSTime));
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, " ");
 }
 
 void SpellMgr::LoadSpellInfoStore()
@@ -3480,7 +3684,7 @@ void SpellMgr::LoadSpellInfoCorrections()
         47134  // Quest Complete
     }, [](SpellInfo* spellInfo)
     {
-        //! HACK: This spell break quest complete for alliance and on retail not used �_O
+        //! HACK: This spell break quest complete for alliance and on retail not used 癬O
         spellInfo->Effects[EFFECT_0].Effect = 0;
     });
 

@@ -5209,7 +5209,10 @@ void AddSC_item_spell_scripts()
 
     new spell_item_create_heart_candy();
     new spell_item_book_of_glyph_mastery();
-    new spell_item_gift_of_the_harvester();
+
+    // lfm azerothcore scripts
+    //new spell_item_gift_of_the_harvester();
+
     new spell_item_map_of_the_geyser_fields();
     new spell_item_vanquished_clutches();
 

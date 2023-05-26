@@ -175,12 +175,30 @@ void WorldSession::HandleGossipSelectOptionOpcode(WorldPacket& recvData)
         if (unit)
         {
             if (!unit->AI()->GossipSelect(_player, menuId, gossipListId))
+            {
+                // lfm azerothcore event will be called
+                uint32 sender = _player->PlayerTalkClass->GetGossipOptionSender(gossipListId);
+                uint32 const action = _player->PlayerTalkClass->GetGossipOptionAction(gossipListId);
+                if (unit->AI()->OnGossipSelect(_player, unit, sender, action))
+                {
+                    return;
+                }
                 _player->OnGossipSelect(unit, gossipListId, menuId);
+            }
         }
         else
         {
             if (!go->AI()->GossipSelect(_player, menuId, gossipListId))
+            {
+                // lfm azerothcore event will be called
+                uint32 sender = _player->PlayerTalkClass->GetGossipOptionSender(gossipListId);
+                uint32 const action = _player->PlayerTalkClass->GetGossipOptionAction(gossipListId);
+                if (go->AI()->OnGossipSelect(_player, go, sender, action))
+                {
+                    return;
+                }
                 _player->OnGossipSelect(go, gossipListId, menuId);
+            }
         }
     }
 }

@@ -1007,6 +1007,10 @@ class TC_GAME_API ObjectMgr
         int LoadReferenceVendor(int32 vendor, int32 item, std::set<uint32>* skip_vendors);
 
         void LoadGameObjectTemplate();
+
+        // lfm azerothcore gameobjects 
+        void LoadGameObjectTemplate_Azerothcore();
+
         void LoadGameObjectTemplateAddons();
         void AddGameobjectInfo(GameObjectTemplate* goinfo);
 
@@ -1175,6 +1179,10 @@ class TC_GAME_API ObjectMgr
         void LoadWaypointScripts();
 
         void LoadSpellScriptNames();
+
+        // lfm azerothcore spell script names
+        void LoadSpellScriptNames_Azerothcore();
+
         void ValidateSpellScripts();
 
         void LoadBroadcastTexts();
@@ -1554,6 +1562,10 @@ class TC_GAME_API ObjectMgr
         bool IsVendorItemValid(uint32 vendor_entry, VendorItem const& vItem, Player* player = nullptr, std::set<uint32>* skip_vendors = nullptr, uint32 ORnpcflag = 0) const;
 
         void LoadScriptNames();
+
+        // lfm azerothcore 
+        void LoadScriptNames_Azerothcore();
+
         ScriptNameContainer const& GetAllScriptNames() const;
         std::string const& GetScriptName(uint32 id) const;
         uint32 GetScriptId(std::string const& name);

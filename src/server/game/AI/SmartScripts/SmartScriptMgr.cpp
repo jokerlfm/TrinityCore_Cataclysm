@@ -118,6 +118,10 @@ void SmartAIMgr::LoadSmartAIFromDB()
 {
     LoadHelperStores();
 
+    // lfm azerothcore
+    LoadSmartAIFromDB_Azerothcore();
+    return;
+
     uint32 oldMSTime = getMSTime();
 
     for (uint8 i = 0; i < SMART_SCRIPT_TYPE_MAX; i++)
@@ -381,6 +385,196 @@ void SmartAIMgr::LoadSmartAIFromDB()
     TC_LOG_INFO("server.loading", ">> Loaded %u SmartAI scripts in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
 
     UnLoadHelperStores();
+}
+
+void SmartAIMgr::LoadSmartAIFromDB_Azerothcore()
+{
+    uint32 oldMSTime = getMSTime();
+
+    for (uint8 i = 0; i < SMART_SCRIPT_TYPE_MAX; i++)
+        mEventMap[i].clear();  //Drop Existing SmartAI List
+    
+    QueryResult result = WorldDatabase.Query("SELECT entryorguid, source_type, id, link, event_type, event_phase_mask, event_chance, event_flags, event_param1, event_param2, event_param3, event_param4, event_param5, action_type, action_param1, action_param2, action_param3, action_param4, action_param5, action_param6, target_type, target_param1, target_param2, target_param3, target_param4, target_x, target_y, target_z, target_o FROM smart_scripts_azerothcore ORDER BY entryorguid, source_type, id, link");
+
+    if (!result)
+    {        
+        sLog->outMessage("ming", LogLevel::LOG_LEVEL_WARN, ">> Loaded 0 SmartAI scripts. DB table `smart_scripts` is empty.");
+        sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, " ");
+        return;
+    }
+
+    uint32 count = 0;
+
+    do
+    {
+        Field* fields = result->Fetch();
+
+        SmartScriptHolder temp;
+
+        temp.entryOrGuid = fields[0].GetInt32();
+        if (!temp.entryOrGuid)
+        {
+            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "SmartAIMgr::LoadSmartAIFromDB: invalid entryorguid (0), skipped loading.");
+            continue;
+        }
+
+        // lfm some smart_scripts will be ignored 
+        if (temp.entryOrGuid == 3678)
+        {
+            continue;
+        }
+
+        SmartScriptType source_type = (SmartScriptType)fields[1].GetUInt8();
+        if (source_type >= SMART_SCRIPT_TYPE_MAX)
+        {
+            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "SmartAIMgr::LoadSmartAIFromDB: invalid source_type ({}), skipped loading.", uint32(source_type));
+            continue;
+        }
+        if (temp.entryOrGuid >= 0)
+        {
+            switch (source_type)
+            {
+            case SMART_SCRIPT_TYPE_CREATURE:
+            {
+                if (!sObjectMgr->GetCreatureTemplate((uint32)temp.entryOrGuid))
+                {
+                    sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "SmartAIMgr::LoadSmartAIFromDB: Creature entry ({}) does not exist, skipped loading.", uint32(temp.entryOrGuid));
+                    continue;
+                }
+                break;
+            }
+            case SMART_SCRIPT_TYPE_GAMEOBJECT:
+            {
+                if (!sObjectMgr->GetGameObjectTemplate((uint32)temp.entryOrGuid))
+                {
+                    sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "SmartAIMgr::LoadSmartAIFromDB: GameObject entry ({}) does not exist, skipped loading.", uint32(temp.entryOrGuid));
+                    continue;
+                }
+                break;
+            }
+            case SMART_SCRIPT_TYPE_AREATRIGGER:
+            {
+                if (!sObjectMgr->GetAreaTrigger((uint32)temp.entryOrGuid))
+                {
+                    sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "SmartAIMgr::LoadSmartAIFromDB: AreaTrigger entry ({}) does not exist, skipped loading.", uint32(temp.entryOrGuid));
+                    continue;
+                }
+                break;
+            }
+            case SMART_SCRIPT_TYPE_TIMED_ACTIONLIST:
+                break;//nothing to check, really
+            default:
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "SmartAIMgr::LoadSmartAIFromDB: not yet implemented source_type {}", (uint32)source_type);
+                continue;
+            }
+        }
+        else
+        {
+            if (!sObjectMgr->GetCreatureData(uint32(std::abs(temp.entryOrGuid))))
+            {
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "SmartAIMgr::LoadSmartAIFromDB: Creature guid ({}) does not exist, skipped loading.", uint32(std::abs(temp.entryOrGuid)));
+                continue;
+            }
+        }
+
+        temp.source_type = source_type;
+        temp.event_id = fields[2].GetUInt16();
+        temp.link = fields[3].GetUInt16();
+        temp.event.type = (SMART_EVENT)fields[4].GetUInt8();
+        temp.event.event_phase_mask = fields[5].GetUInt16();
+        temp.event.event_chance = fields[6].GetUInt8();
+        temp.event.event_flags = fields[7].GetUInt16();
+
+        temp.event.raw.param1 = fields[8].GetUInt32();
+        temp.event.raw.param2 = fields[9].GetUInt32();
+        temp.event.raw.param3 = fields[10].GetUInt32();
+        temp.event.raw.param4 = fields[11].GetUInt32();
+        temp.event.raw.param5 = fields[12].GetUInt32();
+
+        temp.action.type = (SMART_ACTION)fields[13].GetUInt8();
+        temp.action.raw.param1 = fields[14].GetUInt32();
+        temp.action.raw.param2 = fields[15].GetUInt32();
+        temp.action.raw.param3 = fields[16].GetUInt32();
+        temp.action.raw.param4 = fields[17].GetUInt32();
+        temp.action.raw.param5 = fields[18].GetUInt32();
+        temp.action.raw.param6 = fields[19].GetUInt32();
+
+        temp.target.type = (SMARTAI_TARGETS)fields[20].GetUInt8();
+        temp.target.raw.param1 = fields[21].GetUInt32();
+        temp.target.raw.param2 = fields[22].GetUInt32();
+        temp.target.raw.param3 = fields[23].GetUInt32();
+        //temp.target.raw.param4 = fields[24].GetUInt32();
+        temp.target.x = fields[25].GetFloat();
+        temp.target.y = fields[26].GetFloat();
+        temp.target.z = fields[27].GetFloat();
+        temp.target.o = fields[28].GetFloat();
+
+        // lfm smart target none will set to self
+        if (temp.target.type == SMARTAI_TARGETS::SMART_TARGET_NONE)
+        {
+            temp.target.type = SMARTAI_TARGETS::SMART_TARGET_SELF;
+        }
+
+        //check target
+        if (!IsTargetValid(temp))
+            continue;
+
+        // check all event and action params
+        if (!IsEventValid(temp))
+            continue;
+
+        // xinef: specific check for timed events, fix db makers
+        switch (temp.event.type)
+        {
+        case SMART_EVENT_UPDATE:
+        case SMART_EVENT_UPDATE_OOC:
+        case SMART_EVENT_UPDATE_IC:
+        case SMART_EVENT_HEALT_PCT:
+        case SMART_EVENT_TARGET_HEALTH_PCT:
+        case SMART_EVENT_MANA_PCT:
+        case SMART_EVENT_TARGET_MANA_PCT:
+        case SMART_EVENT_FRIENDLY_HEALTH:
+        case SMART_EVENT_FRIENDLY_HEALTH_PCT:
+        case SMART_EVENT_FRIENDLY_MISSING_BUFF:
+        case SMART_EVENT_HAS_AURA:
+        case SMART_EVENT_TARGET_BUFFED:
+            if (temp.event.minMaxRepeat.repeatMin == 0 && temp.event.minMaxRepeat.repeatMax == 0)
+                temp.event.event_flags |= SMART_EVENT_FLAG_NOT_REPEATABLE;
+            break;
+        case SMART_EVENT_RANGE:
+            if (temp.event.minMaxRepeat.min == 0 && temp.event.minMaxRepeat.max == 0)
+                temp.event.event_flags |= SMART_EVENT_FLAG_NOT_REPEATABLE;
+            break;
+        case SMART_EVENT_VICTIM_CASTING:
+        case SMART_EVENT_IS_BEHIND_TARGET:
+            if (temp.event.minMaxRepeat.min == 0 && temp.event.minMaxRepeat.max == 0)
+                temp.event.event_flags |= SMART_EVENT_FLAG_NOT_REPEATABLE;
+            break;
+        case SMART_EVENT_FRIENDLY_IS_CC:
+            if (temp.event.friendlyCC.repeatMin == 0 && temp.event.friendlyCC.repeatMax == 0)
+                temp.event.event_flags |= SMART_EVENT_FLAG_NOT_REPEATABLE;
+            break;
+        default:
+            break;
+        }
+
+        if (temp.action.type == SMART_ACTION_MOVE_TO_POS)
+            if (temp.target.type == SMART_TARGET_SELF && (std::fabs(temp.target.x) > 200.0f || std::fabs(temp.target.y) > 200.0f || std::fabs(temp.target.z) > 200.0f))
+                temp.target.type = SMART_TARGET_POSITION;
+
+        // creature entry / guid not found in storage, create empty event list for it and increase counters
+        if (mEventMap[source_type].find(temp.entryOrGuid) == mEventMap[source_type].end())
+        {
+            ++count;
+            SmartAIEventList eventList;
+            mEventMap[source_type][temp.entryOrGuid] = eventList;
+        }
+        // store the new event
+        mEventMap[source_type][temp.entryOrGuid].push_back(temp);
+    } while (result->NextRow());
+
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, ">> Loaded {} SmartAI scripts in {} ms", count, GetMSTimeDiffToNow(oldMSTime));
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, " ");
 }
 
 SmartAIEventList SmartAIMgr::GetScript(int32 entry, SmartScriptType type)

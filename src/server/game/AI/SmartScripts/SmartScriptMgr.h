@@ -1652,6 +1652,9 @@ class TC_GAME_API SmartAIMgr
 
         void LoadSmartAIFromDB();
 
+        // lfm azerothcore 
+        void LoadSmartAIFromDB_Azerothcore();
+
         SmartAIEventList GetScript(int32 entry, SmartScriptType type);
 
         static SmartScriptHolder& FindLinkedSourceEvent(SmartAIEventList& list, uint32 eventId);

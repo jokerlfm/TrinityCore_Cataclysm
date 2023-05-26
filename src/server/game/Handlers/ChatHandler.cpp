@@ -315,6 +315,15 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
             }
 
             sender->Say(msg, Language(lang));
+
+            //if (msg == "vehicle")
+            //{                
+            //    Vehicle* mv = sender->GetVehicle();
+            //    Unit* mu = sender->GetVehicleBase();
+            //    Creature* mc = sender->GetVehicleCreatureBase();
+            //    Vehicle* mk = sender->GetVehicleKit();
+            //}
+
             break;
         }
         case CHAT_MSG_EMOTE:

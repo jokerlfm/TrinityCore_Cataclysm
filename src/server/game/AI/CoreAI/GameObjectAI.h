@@ -60,6 +60,10 @@ class TC_GAME_API GameObjectAI
         // Called when a player selects a gossip item in the gameobject's gossip menu.
         virtual bool GossipSelect(Player* /*player*/, uint32 /*menuId*/, uint32 /*gossipListId*/) { return false; }
 
+        // lfm azerothcore
+        virtual bool OnGossipHello(Player* /*player*/, GameObject* /*go*/) { return false; }
+        virtual bool OnGossipSelect(Player* /*player*/, GameObject* /*go*/, uint32 /*sender*/, uint32 /*action*/) { return false; }
+
         // Called when a player selects a gossip with a code in the gameobject's gossip menu.
         virtual bool GossipSelectCode(Player* /*player*/, uint32 /*menuId*/, uint32 /*gossipListId*/, char const* /*code*/) { return false; }
 

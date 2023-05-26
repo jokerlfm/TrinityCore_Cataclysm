@@ -98,6 +98,12 @@ void WorldSession::HandleQuestgiverHelloOpcode(WorldPackets::Quest::QuestGiverHe
     if (creature->AI()->GossipHello(_player))
         return;
 
+    // lfm azerothcore event
+    if (creature->AI()->OnGossipHello(_player, creature))
+    {
+        return;
+    }
+
     _player->PrepareGossipMenu(creature, creature->GetCreatureTemplate()->GossipMenuId, true);
     _player->SendPreparedGossip(creature);
 }

@@ -1134,6 +1134,10 @@ void ConditionMgr::LoadConditions(bool isReload)
         sObjectMgr->UnloadPhaseConditions();
     }
 
+    // lfm azerothcore
+    LoadConditions_Azerothcore();
+    return;
+
     QueryResult result = WorldDatabase.Query("SELECT SourceTypeOrReferenceId, SourceGroup, SourceEntry, SourceId, ElseGroup, ConditionTypeOrReference, ConditionTarget, "
                                              " ConditionValue1, ConditionValue2, ConditionValue3, NegativeCondition, ErrorType, ErrorTextId, ScriptName FROM conditions");
 
@@ -1362,6 +1366,244 @@ void ConditionMgr::LoadConditions(bool isReload)
     while (result->NextRow());
 
     TC_LOG_INFO("server.loading", ">> Loaded %u conditions in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+}
+
+// lfm azerothcore 
+void ConditionMgr::LoadConditions_Azerothcore()
+{
+    uint32 oldMSTime = getMSTime();
+
+    Clean();
+
+    QueryResult result = WorldDatabase.Query("SELECT SourceTypeOrReferenceId, SourceGroup, SourceEntry, SourceId, ElseGroup, ConditionTypeOrReference, ConditionTarget, "
+        " ConditionValue1, ConditionValue2, ConditionValue3, NegativeCondition, ErrorType, ErrorTextId, ScriptName FROM conditions_azerothcore");
+
+    if (!result)
+    {
+        sLog->outMessage("ming", LogLevel::LOG_LEVEL_WARN, ">> Loaded 0 conditions. DB table `conditions` is empty!");
+        return;
+    }
+
+    uint32 count = 0;
+
+    do
+    {
+        Field* fields = result->Fetch();
+
+        Condition* cond = new Condition();
+        int32      iSourceTypeOrReferenceId = fields[0].GetInt32();
+        cond->SourceGroup = fields[1].GetUInt32();
+        cond->SourceEntry = fields[2].GetInt32();
+        cond->SourceId = fields[3].GetInt32();
+        cond->ElseGroup = fields[4].GetUInt32();
+        int32 iConditionTypeOrReference = fields[5].GetInt32();
+        cond->ConditionTarget = fields[6].GetUInt8();
+        cond->ConditionValue1 = fields[7].GetUInt32();
+        cond->ConditionValue2 = fields[8].GetUInt32();
+        cond->ConditionValue3 = fields[9].GetUInt32();
+        cond->NegativeCondition = fields[10].GetUInt8();
+        cond->ErrorType = fields[11].GetUInt32();
+        cond->ErrorTextId = fields[12].GetUInt32();
+        cond->ScriptId = sObjectMgr->GetScriptId(fields[13].GetString());
+
+        // azerothcore align 
+        if (cond->SourceType == 28)
+        {
+            cond->SourceType = ConditionSourceType(1);
+        }
+        else if (cond->SourceType > 28)
+        {
+            continue;
+        }
+
+        if (iConditionTypeOrReference >= 0)
+            cond->ConditionType = ConditionTypes(iConditionTypeOrReference);
+
+        if (iSourceTypeOrReferenceId >= 0)
+            cond->SourceType = ConditionSourceType(iSourceTypeOrReferenceId);
+
+        if (iConditionTypeOrReference < 0) // it has a reference
+        {
+            if (iConditionTypeOrReference == iSourceTypeOrReferenceId) // self referencing, skip
+            {
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Condition reference %d is referencing self, skipped", iSourceTypeOrReferenceId);
+                delete cond;
+                continue;
+            }
+            cond->ReferenceId = uint32(std::abs(iConditionTypeOrReference));
+
+            const char* rowType = "reference template";
+            if (iSourceTypeOrReferenceId >= 0)
+                rowType = "reference";
+            // check for useless data
+            if (cond->ConditionTarget)
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Condition %d %d has useless data in ConditionTarget (%d)!", rowType, iSourceTypeOrReferenceId, cond->ConditionTarget);
+            if (cond->ConditionValue1)
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Condition %d %d has useless data in value1 (%d)!", rowType, iSourceTypeOrReferenceId, cond->ConditionValue1);
+            if (cond->ConditionValue2)
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Condition %d %d has useless data in value2 (%d)!", rowType, iSourceTypeOrReferenceId, cond->ConditionValue2);
+            if (cond->ConditionValue3)
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Condition %d %d has useless data in value3 (%d)!", rowType, iSourceTypeOrReferenceId, cond->ConditionValue3);
+            if (cond->NegativeCondition)
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Condition %d %d has useless data in NegativeCondition (%d)!", rowType, iSourceTypeOrReferenceId, cond->NegativeCondition);
+            if (cond->SourceGroup && iSourceTypeOrReferenceId < 0)
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Condition %d %d has useless data in SourceGroup (%d)!", rowType, iSourceTypeOrReferenceId, cond->SourceGroup);
+            if (cond->SourceEntry && iSourceTypeOrReferenceId < 0)
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Condition %d %d has useless data in SourceEntry (%d)!", rowType, iSourceTypeOrReferenceId, cond->SourceEntry);
+        }
+        else if (!isConditionTypeValid(cond)) // doesn't have reference, validate ConditionType
+        {
+            delete cond;
+            continue;
+        }
+
+        if (iSourceTypeOrReferenceId < 0) // it is a reference template
+        {
+            ConditionReferenceStore[std::abs(iSourceTypeOrReferenceId)].push_back(cond);//add to reference storage
+            ++count;
+            continue;
+        } // end of reference templates
+
+        // if not a reference and SourceType is invalid, skip
+        if (iConditionTypeOrReference >= 0 && !isSourceTypeValid(cond))
+        {
+            delete cond;
+            continue;
+        }
+
+        // Grouping is only allowed for some types (loot templates, gossip menus, gossip items)
+        if (cond->SourceGroup && !CanHaveSourceGroupSet(cond->SourceType))
+        {
+            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Condition type %d has not allowed value of SourceGroup = %d!", uint32(cond->SourceType), cond->SourceGroup);
+            delete cond;
+            continue;
+        }
+        if (cond->SourceId && !CanHaveSourceIdSet(cond->SourceType))
+        {
+            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Condition type %d has not allowed value of SourceId = %d!", uint32(cond->SourceType), cond->SourceId);
+            delete cond;
+            continue;
+        }
+
+        if (cond->ErrorType && cond->SourceType != CONDITION_SOURCE_TYPE_SPELL)
+        {
+            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Condition type %d entry %d can't have ErrorType (%d), set to 0!", uint32(cond->SourceType), cond->SourceEntry, cond->ErrorType);
+            cond->ErrorType = 0;
+        }
+
+        if (cond->ErrorTextId && !cond->ErrorType)
+        {
+            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Condition type %d entry %d has any ErrorType, ErrorTextId (%d) is set, set to 0!", uint32(cond->SourceType), cond->SourceEntry, cond->ErrorTextId);
+            cond->ErrorTextId = 0;
+        }
+
+        if (cond->SourceGroup)
+        {
+            bool valid = false;
+            // handle grouped conditions
+            switch (cond->SourceType)
+            {
+            case CONDITION_SOURCE_TYPE_CREATURE_LOOT_TEMPLATE:
+                valid = addToLootTemplate(cond, LootTemplates_Creature.GetLootForConditionFill(cond->SourceGroup));
+                break;
+            case CONDITION_SOURCE_TYPE_DISENCHANT_LOOT_TEMPLATE:
+                valid = addToLootTemplate(cond, LootTemplates_Disenchant.GetLootForConditionFill(cond->SourceGroup));
+                break;
+            case CONDITION_SOURCE_TYPE_FISHING_LOOT_TEMPLATE:
+                valid = addToLootTemplate(cond, LootTemplates_Fishing.GetLootForConditionFill(cond->SourceGroup));
+                break;
+            case CONDITION_SOURCE_TYPE_GAMEOBJECT_LOOT_TEMPLATE:
+                valid = addToLootTemplate(cond, LootTemplates_Gameobject.GetLootForConditionFill(cond->SourceGroup));
+                break;
+            case CONDITION_SOURCE_TYPE_ITEM_LOOT_TEMPLATE:
+                valid = addToLootTemplate(cond, LootTemplates_Item.GetLootForConditionFill(cond->SourceGroup));
+                break;
+            case CONDITION_SOURCE_TYPE_MAIL_LOOT_TEMPLATE:
+                valid = addToLootTemplate(cond, LootTemplates_Mail.GetLootForConditionFill(cond->SourceGroup));
+                break;
+            case CONDITION_SOURCE_TYPE_MILLING_LOOT_TEMPLATE:
+                valid = addToLootTemplate(cond, LootTemplates_Milling.GetLootForConditionFill(cond->SourceGroup));
+                break;
+            case CONDITION_SOURCE_TYPE_PICKPOCKETING_LOOT_TEMPLATE:
+                valid = addToLootTemplate(cond, LootTemplates_Pickpocketing.GetLootForConditionFill(cond->SourceGroup));
+                break;
+            case CONDITION_SOURCE_TYPE_PROSPECTING_LOOT_TEMPLATE:
+                valid = addToLootTemplate(cond, LootTemplates_Prospecting.GetLootForConditionFill(cond->SourceGroup));
+                break;
+            case CONDITION_SOURCE_TYPE_REFERENCE_LOOT_TEMPLATE:
+                valid = addToLootTemplate(cond, LootTemplates_Reference.GetLootForConditionFill(cond->SourceGroup));
+                break;
+            case CONDITION_SOURCE_TYPE_SKINNING_LOOT_TEMPLATE:
+                valid = addToLootTemplate(cond, LootTemplates_Skinning.GetLootForConditionFill(cond->SourceGroup));
+                break;
+            case CONDITION_SOURCE_TYPE_SPELL_LOOT_TEMPLATE:
+                valid = addToLootTemplate(cond, LootTemplates_Spell.GetLootForConditionFill(cond->SourceGroup));
+                break;
+            case CONDITION_SOURCE_TYPE_GOSSIP_MENU:
+                valid = addToGossipMenus(cond);
+                break;
+            case CONDITION_SOURCE_TYPE_GOSSIP_MENU_OPTION:
+                valid = addToGossipMenuItems(cond);
+                break;
+            case CONDITION_SOURCE_TYPE_SPELL_CLICK_EVENT:
+            {
+                SpellClickEventConditionStore[cond->SourceGroup][cond->SourceEntry].push_back(cond);
+                valid = true;
+                ++count;
+                continue; // do not add to m_AllocatedMemory to avoid double deleting
+            }
+            case CONDITION_SOURCE_TYPE_SPELL_IMPLICIT_TARGET:
+                valid = addToSpellImplicitTargetConditions(cond);
+                break;
+            case CONDITION_SOURCE_TYPE_VEHICLE_SPELL:
+            {
+                VehicleSpellConditionStore[cond->SourceGroup][cond->SourceEntry].push_back(cond);
+                valid = true;
+                ++count;
+                continue; // do not add to m_AllocatedMemory to avoid double deleting
+            }
+            case CONDITION_SOURCE_TYPE_SMART_EVENT:
+            {
+                //! TODO: PAIR_32 ?
+                std::pair<int32, uint32> key = std::make_pair(cond->SourceEntry, cond->SourceId);
+                SmartEventConditionStore[key][cond->SourceGroup].push_back(cond);
+                valid = true;
+                ++count;
+                continue;
+            }
+            case CONDITION_SOURCE_TYPE_NPC_VENDOR:
+            {
+                NpcVendorConditionContainerStore[cond->SourceGroup][cond->SourceEntry].push_back(cond);
+                valid = true;
+                ++count;
+                continue;
+            }
+            default:
+                break;
+            }
+
+            if (!valid)
+            {
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Not handled grouped condition, SourceGroup %d", cond->SourceGroup);
+                delete cond;
+            }
+            else
+            {
+                AllocatedMemoryStore.push_back(cond);
+                ++count;
+            }
+            continue;
+        }
+
+        // handle not grouped conditions
+        if (cond->SourceType == CONDITION_SOURCE_TYPE_SPELL_CLICK_EVENT && cond->ConditionType == CONDITION_AURA)
+            SpellsUsedInSpellClickConditions.insert(cond->ConditionValue1);
+        ConditionStore[cond->SourceType][cond->SourceEntry].push_back(cond);
+
+        ++count;
+    } while (result->NextRow());
+
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, ">> Loaded %d conditions in %d ms", count, GetMSTimeDiffToNow(oldMSTime));
 }
 
 bool ConditionMgr::addToLootTemplate(Condition* cond, LootTemplate* loot) const

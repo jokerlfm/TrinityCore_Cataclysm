@@ -27,6 +27,9 @@
 #include <unordered_map>
 #include <vector>
 
+// lfm azerothcore
+#include "Azerothcore.h"
+
 class Item;
 class LootStore;
 class Player;

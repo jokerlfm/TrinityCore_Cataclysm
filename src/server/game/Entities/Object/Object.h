@@ -132,6 +132,12 @@ class TC_GAME_API Object
         bool HasFlag(uint16 index, uint32 flag) const;
         void ApplyModFlag(uint16 index, uint32 flag, bool apply);
 
+        // lfm azerothcore 
+        void SetUnitFlag(uint32 flag);
+        void RemoveUnitFlag(uint32 flag);
+        void ReplaceAllUnitFlags(uint32 flags) { SetUInt32Value(UNIT_FIELD_FLAGS, flags); }
+        void ReplaceAllUnitFlags2(uint32 flags) { SetUInt32Value(UNIT_FIELD_FLAGS_2, flags); }
+
         void SetByteFlag(uint16 index, uint8 offset, uint8 newFlag);
         void RemoveByteFlag(uint16 index, uint8 offset, uint8 newFlag);
         void ToggleByteFlag(uint16 index, uint8 offset, uint8 flag);
@@ -470,6 +476,9 @@ class TC_GAME_API WorldObject : public Object, public WorldLocation
         SpellCastResult CastSpell(SpellCastTargets const& targets, uint32 spellId, CastSpellExtraArgs const& args = { });
         SpellCastResult CastSpell(WorldObject* target, uint32 spellId, CastSpellExtraArgs const& args = { });
         SpellCastResult CastSpell(Position const& dest, uint32 spellId, CastSpellExtraArgs const& args = { });
+
+        // lfm cast spell to position 
+        SpellCastResult CastSpell(float targetX, float targetY, float targetZ, uint32 spellId, CastSpellExtraArgs const& args = { });
 
         bool IsValidAttackTarget(WorldObject const* target, SpellInfo const* bySpell = nullptr) const;
         bool IsValidAssistTarget(WorldObject const* target, SpellInfo const* bySpell = nullptr) const;

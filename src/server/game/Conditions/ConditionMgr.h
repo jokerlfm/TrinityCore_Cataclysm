@@ -248,6 +248,10 @@ class TC_GAME_API ConditionMgr
         static ConditionMgr* instance();
 
         void LoadConditions(bool isReload = false);
+
+        // lfm azerothcore
+        void LoadConditions_Azerothcore();
+
         bool isConditionTypeValid(Condition* cond) const;
 
         uint32 GetSearcherTypeMaskForConditionList(ConditionContainer const& conditions) const;

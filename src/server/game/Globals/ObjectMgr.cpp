@@ -459,6 +459,8 @@ void ObjectMgr::LoadCreatureTemplates()
         CheckCreatureTemplate(&itr->second);
 
     TC_LOG_INFO("server.loading", ">> Loaded %u creature definitions in %u ms", uint32(_creatureTemplateStore.size()), GetMSTimeDiffToNow(oldMSTime));
+
+    LoadCreatureTemplates_Azerothcore();
 }
 
 void ObjectMgr::LoadCreatureTemplate(Field* fields)
@@ -641,9 +643,9 @@ void ObjectMgr::LoadCreatureTemplate_Azerothcore(Field* fields)
     creatureTemplate.BaseVariance = fields[30].GetFloat();
     creatureTemplate.RangeVariance = fields[31].GetFloat();
     creatureTemplate.unit_class = uint32(fields[32].GetUInt8());
-    creatureTemplate.unit_flags |= fields[33].GetUInt32();
-    creatureTemplate.unit_flags2 |= fields[34].GetUInt32();
-    creatureTemplate.dynamicflags |= fields[35].GetUInt32();
+    creatureTemplate.unit_flags = fields[33].GetUInt32();
+    creatureTemplate.unit_flags2 = fields[34].GetUInt32();
+    creatureTemplate.dynamicflags = fields[35].GetUInt32();
     creatureTemplate.family = CreatureFamily(uint32(fields[36].GetUInt8()));
     //creatureTemplate.trainer_type = uint32(fields[37].GetUInt8());
     //creatureTemplate.trainer_spell = fields[38].GetUInt32();
@@ -691,12 +693,27 @@ void ObjectMgr::LoadCreatureTemplate_Azerothcore(Field* fields)
     creatureTemplate.ModExperience = fields[63].GetFloat();
     creatureTemplate.RacialLeader = fields[64].GetBool();
     creatureTemplate.movementId = fields[65].GetUInt32();
-    creatureTemplate.RegenHealth = fields[66].GetBool();
+    //creatureTemplate.RegenHealth = fields[66].GetBool();
     creatureTemplate.MechanicImmuneMask = fields[67].GetUInt32();
     creatureTemplate.SpellSchoolImmuneMask = fields[68].GetUInt8();
     creatureTemplate.flags_extra |= fields[69].GetUInt32();
-    //creatureTemplate.AIName = fields[50].GetString();
-    //creatureTemplate.ScriptID = GetScriptId(fields[70].GetString());
+
+    // lfm debug
+    if (creatureTemplate.Entry == 28782)
+    {
+        bool breakPoint = true;
+    }
+
+    std::string azAIName = fields[50].GetString();
+    if (azAIName == "SmartAI" || azAIName == "NullCreatureAI" || azAIName == "PassiveAI" || azAIName == "ArcherAI" || azAIName == "TurretAI")
+    {
+        creatureTemplate.AIName = azAIName;
+    }
+    else
+    {
+        creatureTemplate.AIName = "";
+    }
+    creatureTemplate.ScriptID = GetScriptId(fields[70].GetString());
 
     // lfm creature template fix
     if (creatureTemplate.GossipMenuId > 0)
@@ -5489,6 +5506,10 @@ void ObjectMgr::LoadWaypointScripts()
 
 void ObjectMgr::LoadSpellScriptNames()
 {
+    // lfm azerothcore spell script names 
+    LoadSpellScriptNames_Azerothcore();
+    return;
+
     uint32 oldMSTime = getMSTime();
 
     _spellScriptsStore.clear();                            // need for reload case
@@ -5555,6 +5576,68 @@ void ObjectMgr::LoadSpellScriptNames()
     while (result->NextRow());
 
     TC_LOG_INFO("server.loading", ">> Loaded %u spell script names in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+}
+
+void ObjectMgr::LoadSpellScriptNames_Azerothcore()
+{
+    uint32 oldMSTime = getMSTime();
+
+    _spellScriptsStore.clear();                            // need for reload case
+
+    QueryResult result = WorldDatabase.Query("SELECT spell_id, ScriptName FROM spell_script_names_azerothcore");
+
+    if (!result)
+    {
+        sLog->outMessage("ming", LogLevel::LOG_LEVEL_WARN, ">> Loaded 0 spell script names. DB table `spell_script_names` is empty!");
+        sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, " ");
+        return;
+    }
+
+    uint32 count = 0;
+
+    do
+    {
+        Field* fields = result->Fetch();
+
+        int32 spellId = fields[0].GetInt32();
+        std::string scriptName = fields[1].GetString();
+
+        bool allRanks = false;
+        if (spellId <= 0)
+        {
+            allRanks = true;
+            spellId = -spellId;
+        }
+
+        SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+        if (!spellInfo)
+        {
+            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Scriptname: `%s` spell (spell_id:%d) does not exist in `Spell.dbc`.", scriptName, fields[0].GetInt32());
+            continue;
+        }
+
+        if (allRanks)
+        {
+            if (sSpellMgr->GetFirstSpellInChain(spellId) != uint32(spellId))
+            {
+                sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "Scriptname: `%s` spell (spell_id:%d) is not first rank of spell.", scriptName, fields[0].GetInt32());
+                continue;
+            }
+            while (spellInfo)
+            {
+                _spellScriptsStore.insert(SpellScriptsContainer::value_type(spellInfo->Id, std::make_pair(GetScriptId(scriptName), true)));
+                spellInfo = spellInfo->GetNextRankSpell();
+            }
+        }
+        else
+        {
+            _spellScriptsStore.insert(SpellScriptsContainer::value_type(spellInfo->Id, std::make_pair(GetScriptId(scriptName), true)));            
+        }            
+        ++count;
+    } while (result->NextRow());
+
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, ">> Loaded %d spell script names in %d ms", count, GetMSTimeDiffToNow(oldMSTime));
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, " ");
 }
 
 void ObjectMgr::ValidateSpellScripts()
@@ -7444,6 +7527,198 @@ void ObjectMgr::LoadGameObjectTemplate()
     while (result->NextRow());
 
     TC_LOG_INFO("server.loading", ">> Loaded %u game object templates in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+
+    // lfm azerothcore gameobjects
+    LoadGameObjectTemplate_Azerothcore();
+}
+
+// lfm azerothcore gameobjects 
+void ObjectMgr::LoadGameObjectTemplate_Azerothcore()
+{
+    uint32 oldMSTime = getMSTime();
+
+    //                                                 0      1      2        3       4             5          6      7
+    QueryResult result = WorldDatabase.Query("SELECT entry, type, displayId, name, IconName, castBarCaption, unk1, size, "
+        //                                          8      9      10     11     12     13     14     15     16     17     18      19      20
+        "Data0, Data1, Data2, Data3, Data4, Data5, Data6, Data7, Data8, Data9, Data10, Data11, Data12, "
+        //                                          21      22      23      24      25      26      27      28      29      30      31      32        33
+        "Data13, Data14, Data15, Data16, Data17, Data18, Data19, Data20, Data21, Data22, Data23, AIName, ScriptName "
+        "FROM gameobject_template_azerothcore");
+
+    if (!result)
+    {
+        sLog->outMessage("ming", LogLevel::LOG_LEVEL_WARN, ">> Loaded 0 gameobject definitions. DB table `gameobject_template` is empty.");
+        sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, " ");
+        return;
+    }
+
+    uint32 count = 0;
+    do
+    {
+        Field* fields = result->Fetch();
+
+        uint32 entry = fields[0].GetUInt32();
+
+        GameObjectTemplate& got = _gameObjectTemplateStore[entry];
+
+        got.entry = entry;
+        got.type = uint32(fields[1].GetUInt8());
+        got.displayId = fields[2].GetUInt32();
+        got.name = fields[3].GetString();
+        got.IconName = fields[4].GetString();
+        got.castBarCaption = fields[5].GetString();
+        got.unk1 = fields[6].GetString();
+        got.size = fields[7].GetFloat();
+
+        for (uint8 i = 0; i < 24; ++i)
+            got.raw.data[i] = fields[8 + i].GetInt32(); // data1 and data6 can be -1
+
+        got.AIName = fields[32].GetString();
+        got.ScriptId = GetScriptId(fields[33].GetString());
+        //got.IsForQuests = false;
+
+        // Checks
+        if (!got.AIName.empty() && !sGameObjectAIRegistry->HasItem(got.AIName))
+        {
+            sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "GameObject (Entry: %d) has non-registered `AIName` '%d' set, removing", got.entry, got.AIName);
+        }
+
+        switch (got.type)
+        {
+        case GAMEOBJECT_TYPE_DOOR:                      //0
+        {
+            if (got.door.open)
+                CheckGOLockId(&got, got.door.open, 1);
+            CheckGONoDamageImmuneId(&got, got.door.noDamageImmune, 3);
+            break;
+        }
+        case GAMEOBJECT_TYPE_BUTTON:                    //1
+        {
+            if (got.button.open)
+                CheckGOLockId(&got, got.button.open, 1);
+            CheckGONoDamageImmuneId(&got, got.button.noDamageImmune, 4);
+            break;
+        }
+        case GAMEOBJECT_TYPE_QUESTGIVER:                //2
+        {
+            if (got.questgiver.open)
+                CheckGOLockId(&got, got.questgiver.open, 0);
+            CheckGONoDamageImmuneId(&got, got.questgiver.noDamageImmune, 5);
+            break;
+        }
+        case GAMEOBJECT_TYPE_CHEST:                     //3
+        {
+            if (got.chest.open)
+                CheckGOLockId(&got, got.chest.open, 0);
+
+            CheckGOConsumable(&got, got.chest.consumable, 3);
+
+            if (got.chest.linkedTrap)              // linked trap
+                CheckGOLinkedTrapId(&got, got.chest.linkedTrap, 7);
+            break;
+        }
+        case GAMEOBJECT_TYPE_TRAP:                      //6
+        {
+            if (got.trap.open)
+                CheckGOLockId(&got, got.trap.open, 0);
+            break;
+        }
+        case GAMEOBJECT_TYPE_CHAIR:                     //7
+            CheckAndFixGOChairHeightId(&got, got.chair.chairheight, 1);
+            break;
+        case GAMEOBJECT_TYPE_SPELL_FOCUS:               //8
+        {
+            if (got.spellFocus.spellFocusType)
+            {
+                if (!sSpellFocusObjectStore.LookupEntry(got.spellFocus.spellFocusType))
+                    sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "GameObject (Entry: %d GoType: %d) have data0=%d but SpellFocus (Id: %d) not exist.",
+                        entry, got.type, got.spellFocus.spellFocusType, got.spellFocus.spellFocusType);
+            }
+
+            if (got.spellFocus.linkedTrap)        // linked trap
+                CheckGOLinkedTrapId(&got, got.spellFocus.linkedTrap, 2);
+            break;
+        }
+        case GAMEOBJECT_TYPE_GOOBER:                    //10
+        {
+            if (got.goober.open)
+                CheckGOLockId(&got, got.goober.open, 0);
+
+            CheckGOConsumable(&got, got.goober.consumable, 3);
+
+            if (got.goober.pageID)                  // pageId
+            {
+                if (!GetPageText(got.goober.pageID))
+                    sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "GameObject (Entry: %d GoType: %d) have data7=%d but PageText (Entry %d) not exist.",
+                        entry, got.type, got.goober.pageID, got.goober.pageID);
+            }
+            CheckGONoDamageImmuneId(&got, got.goober.noDamageImmune, 11);
+            if (got.goober.linkedTrap)            // linked trap
+                CheckGOLinkedTrapId(&got, got.goober.linkedTrap, 12);
+            break;
+        }
+        case GAMEOBJECT_TYPE_AREADAMAGE:                //12
+        {
+            if (got.areadamage.open)
+                CheckGOLockId(&got, got.areadamage.open, 0);
+            break;
+        }
+        case GAMEOBJECT_TYPE_CAMERA:                    //13
+        {
+            if (got.camera.open)
+                CheckGOLockId(&got, got.camera.open, 0);
+            break;
+        }
+        case GAMEOBJECT_TYPE_MO_TRANSPORT:              //15
+        {
+            if (got.moTransport.taxiPathID)
+            {
+                if (got.moTransport.taxiPathID >= sTaxiPathNodesByPath.size() || sTaxiPathNodesByPath[got.moTransport.taxiPathID].empty())
+                    sLog->outMessage("ming", LogLevel::LOG_LEVEL_ERROR, "GameObject (Entry: %d GoType: %d) have data0=%d but TaxiPath (Id: %d) not exist.",
+                        entry, got.type, got.moTransport.taxiPathID, got.moTransport.taxiPathID);
+            }
+            if (uint32 transportMap = got.moTransport.SpawnMap)
+                _transportMaps.insert(transportMap);
+            break;
+        }
+        case GAMEOBJECT_TYPE_SUMMONING_RITUAL:          //18
+            break;
+        case GAMEOBJECT_TYPE_SPELLCASTER:               //22
+        {
+            // always must have spell
+            CheckGOSpellId(&got, got.spellcaster.spell, 0);
+            break;
+        }
+        case GAMEOBJECT_TYPE_FLAGSTAND:                 //24
+        {
+            if (got.flagstand.open)
+                CheckGOLockId(&got, got.flagstand.open, 0);
+            CheckGONoDamageImmuneId(&got, got.flagstand.noDamageImmune, 5);
+            break;
+        }
+        case GAMEOBJECT_TYPE_FISHINGHOLE:               //25
+        {
+            if (got.fishinghole.open)
+                CheckGOLockId(&got, got.fishinghole.open, 4);
+            break;
+        }
+        case GAMEOBJECT_TYPE_FLAGDROP:                  //26
+        {
+            if (got.flagdrop.open)
+                CheckGOLockId(&got, got.flagdrop.open, 0);
+            CheckGONoDamageImmuneId(&got, got.flagdrop.noDamageImmune, 3);
+            break;
+        }
+        case GAMEOBJECT_TYPE_BARBER_CHAIR:              //32
+            CheckAndFixGOChairHeightId(&got, got.barberChair.chairheight, 0);
+            break;
+        }
+
+        ++count;
+    } while (result->NextRow());
+
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, ">> Loaded %d Game Object Templates in %d ms", count, GetMSTimeDiffToNow(oldMSTime));
+    sLog->outMessage("ming", LogLevel::LOG_LEVEL_INFO, " ");
 }
 
 void ObjectMgr::LoadGameObjectTemplateAddons()
@@ -9534,6 +9809,10 @@ bool ObjectMgr::IsVendorItemValid(uint32 vendor_entry, VendorItem const& vItem, 
 
 void ObjectMgr::LoadScriptNames()
 {
+    // lfm azerothcore 
+    LoadScriptNames_Azerothcore();
+    return;
+
     uint32 oldMSTime = getMSTime();
 
     // We insert an empty placeholder here so we can use the
@@ -9588,6 +9867,73 @@ void ObjectMgr::LoadScriptNames()
         _scriptNamesStore.push_back((*result)[0].GetString());
     }
     while (result->NextRow());
+
+    std::sort(_scriptNamesStore.begin(), _scriptNamesStore.end());
+
+    TC_LOG_INFO("server.loading", ">> Loaded " SZFMTD " ScriptNames in %u ms", _scriptNamesStore.size(), GetMSTimeDiffToNow(oldMSTime));
+}
+
+void ObjectMgr::LoadScriptNames_Azerothcore()
+{
+    uint32 oldMSTime = getMSTime();
+
+    // We insert an empty placeholder here so we can use the
+    // script id 0 as dummy for "no script found".
+    _scriptNamesStore.emplace_back("");
+
+    QueryResult result = WorldDatabase.Query(
+        "SELECT DISTINCT(ScriptName) FROM achievement_criteria_data WHERE ScriptName <> '' AND type = 11 "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM battleground_template WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM creature WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM creature_template WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM creature_template_azerothcore WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM gameobject WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM gameobject_template WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM gameobject_template_azerothcore WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM item_script_names WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM areatrigger_scripts WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM spell_script_names WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM spell_script_names_azerothcore WHERE ScriptName <> '' "
+        "UNION "        
+        "SELECT DISTINCT(ScriptName) FROM transports WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM game_weather WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM conditions WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM outdoorpvp_template WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM world_map_template WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM world_state WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(ScriptName) FROM battlefield_template WHERE ScriptName <> '' "
+        "UNION "
+        "SELECT DISTINCT(script) FROM instance_template WHERE script <> ''");
+
+    if (!result)
+    {
+        TC_LOG_ERROR("server.loading", ">> Loaded empty set of Script Names!");
+        return;
+    }
+
+    _scriptNamesStore.reserve(result->GetRowCount() + 1);
+
+    do
+    {
+        _scriptNamesStore.push_back((*result)[0].GetString());
+    } while (result->NextRow());
 
     std::sort(_scriptNamesStore.begin(), _scriptNamesStore.end());
 
@@ -9827,6 +10173,10 @@ void ObjectMgr::LoadCreatureClassLevelStats()
 
         CreatureBaseStats stats;
 
+        // lfm creature expansion status fix 
+        uint32 maxHP = 0;
+        uint32 maxDMG = 0;
+
         for (uint8 i = 0; i < MAX_EXPANSIONS; ++i)
         {
             stats.BaseHealth[i] = fields[2 + i].GetUInt32();
@@ -9837,11 +10187,31 @@ void ObjectMgr::LoadCreatureClassLevelStats()
                 stats.BaseHealth[i] = 1;
             }
 
+            // lfm creature expansion status fix 
+            if (stats.BaseHealth[i] < maxHP)
+            {
+                stats.BaseHealth[i] = maxHP;
+            }
+            else
+            {
+                maxHP = stats.BaseHealth[i];
+            }
+
             stats.BaseDamage[i] = fields[10 + i].GetFloat();
             if (stats.BaseDamage[i] < 0.0f)
             {
                 TC_LOG_ERROR("sql.sql", "Creature base stats for class %u, level %u has invalid negative base damage[%u] - set to 0.0", Class, Level, i);
                 stats.BaseDamage[i] = 0.0f;
+            }
+
+            // lfm creature expansion status fix 
+            if (stats.BaseDamage[i] < maxDMG)
+            {
+                stats.BaseDamage[i] = maxDMG;
+            }
+            else
+            {
+                maxDMG = stats.BaseDamage[i];
             }
         }
 

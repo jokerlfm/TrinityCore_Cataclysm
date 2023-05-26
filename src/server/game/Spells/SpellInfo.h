@@ -265,7 +265,10 @@ public:
     uint32    ItemType;
     uint32    TriggerSpell;
     flag96    SpellClassMask;
-    std::vector<Condition*>* ImplicitTargetConditions;
+
+    std::vector<Condition*>* ImplicitTargetConditions;    
+
+
     // SpellScalingEntry
     struct
     {

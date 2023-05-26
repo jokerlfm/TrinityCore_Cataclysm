@@ -607,18 +607,37 @@ m_caster((info->HasAttribute(SPELL_ATTR6_ORIGINATE_FROM_CONTROLLER) && caster->G
                     m_spellSchoolMask = SpellSchoolMask(1 << pItem->GetTemplate()->GetDamageType());
     }
 
-    if (originalCasterGUID)
-        m_originalCasterGUID = originalCasterGUID;
-    else
-        m_originalCasterGUID = m_caster->GetGUID();
-
-    if (m_originalCasterGUID == m_caster->GetGUID())
-        m_originalCaster = m_caster->ToUnit();
-    else
+    // lfm debug
+    if (m_spellInfo->Id == 52479)
     {
+        bool breakPoint = true;
+    }
+
+    if (originalCasterGUID)
+    {
+        m_originalCasterGUID = originalCasterGUID;
         m_originalCaster = ObjectAccessor::GetUnit(*m_caster, m_originalCasterGUID);
         if (m_originalCaster && !m_originalCaster->IsInWorld())
+        {
             m_originalCaster = nullptr;
+        }
+    }
+    else
+    {
+        // lfm original caster fix
+        if (m_caster->GetTypeId() == TypeID::TYPEID_GAMEOBJECT)
+        {
+            if (Unit* co = m_caster->GetOwner())
+            {
+                m_originalCaster = co;
+                m_originalCasterGUID = co->GetGUID();
+            }
+        }
+        else
+        {
+            m_originalCasterGUID = m_caster->GetGUID();
+            m_originalCaster = m_caster->ToUnit();
+        }
     }
 
     m_spellState = SPELL_STATE_NULL;

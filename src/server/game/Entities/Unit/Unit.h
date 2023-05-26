@@ -831,12 +831,16 @@ class TC_GAME_API Unit : public WorldObject
 
         virtual ~Unit();
 
+        // lfm azerothcore
+        void StopMovingOnCurrentPos();
+
         bool IsAIEnabled() const { return (i_AI != nullptr); }
         void AIUpdateTick(uint32 diff);
         UnitAI* GetAI() const { return i_AI.get(); }
         void ScheduleAIChange();
         void PushAI(UnitAI* newAI);
         bool PopAI();
+
     protected:
         void SetAI(UnitAI* newAI);
         UnitAI* GetTopAI() const { return i_AIs.empty() ? nullptr : i_AIs.top().get(); }
